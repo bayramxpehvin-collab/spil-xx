@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SPIL-X PRO | MOBILE ANALYST</title>
+    <title>SPIL-X PRO | THERMAL ANALYST</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="cordova.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
@@ -55,9 +55,9 @@
     <div class="controls">
         <button class="btn btn-connect" id="conn-btn" onclick="initBT()">CİHAZA BAĞLAN (HC-06)</button>
         <button class="btn btn-start" id="start-btn" onclick="sendCmd('S')" disabled>TARAMAYI BAŞLAT</button>
-        <button class="btn active" id="m-2d" onclick="switchMode('heatmap')">2D HARİTA</button>
-        <button class="btn" id="m-3d" onclick="switchMode('surface')">3D HACİM</button>
-        <button class="btn btn-save" onclick="saveJSON()">VERİ KAYDET</button>
+        <button class="btn active" id="m-2d" onclick="switchMode('heatmap')">TERMAL HARİTA</button>
+        <button class="btn" id="m-3d" onclick="switchMode('surface')">3D ANALİZ</button>
+        <button class="btn btn-save" onclick="saveDataJSON()">JSON KAYDET</button>
         <button class="btn btn-clear" onclick="clearData()">TEMİZLE</button>
     </div>
 
@@ -66,10 +66,8 @@
     </div>
 
     <div class="analysis-box">
-        <div class="label" style="margin-bottom:5px;">AI SAHA ANALİZİ</div>
-        <div id="log-list">
-            <div class="ai-msg">Sistem hazır.</div>
-        </div>
+        <div class="label" style="margin-bottom:5px;">SAHA VERİ GÜNLÜĞÜ</div>
+        <div id="log-list"><div class="ai-msg">Sistem hazır.</div></div>
     </div>
 </div>
 
@@ -78,89 +76,66 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-    // ÖZEL RENK SKALASI (Voltaj aralıklarına göre)
-    // 0.0 - 5.0 (Metal - Kırmızı)
-    // 5.1 - 9.9 (Mineral - Sarı)
-    // 10.0 - 16.4 (Zemin - Yeşil)
-    // 16.5 - 20.0 (Boşluk - Mavi)
-    const customColorscale = [
-        [0, 'rgb(255, 0, 0)'],       // 0V -> Kırmızı (Metal)
+    // ÖZEL TERMAL SKALA
+    const thermalColorscale = [
+        [0, 'rgb(255, 0, 0)'],       // 0V -> Metal (Kırmızı)
         [0.25, 'rgb(255, 0, 0)'],    // 5V
-        [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Sarı (Mineral)
+        [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Mineral (Sarı)
         [0.495, 'rgb(255, 255, 0)'], // 9.9V
-        [0.5, 'rgb(0, 255, 106)'],   // 10V -> Yeşil (Zemin)
+        [0.5, 'rgb(0, 255, 106)'],   // 10V -> Zemin (Yeşil)
         [0.82, 'rgb(0, 255, 106)'],  // 16.4V
-        [0.825, 'rgb(0, 242, 255)'], // 16.5V -> Mavi (Boşluk)
+        [0.825, 'rgb(0, 242, 255)'], // 16.5V -> Boşluk (Mavi)
         [1, 'rgb(0, 242, 255)']      // 20V
     ];
 
     document.addEventListener('deviceready', function() {
         pushLog("Sistem Başlatıldı...");
-        requestAndroidPermissions();
+        requestPermissions();
         initGraph();
     }, false);
 
-    function requestAndroidPermissions() {
+    function requestPermissions() {
         if (typeof cordova !== 'undefined' && cordova.plugins.permissions) {
-            const permissions = cordova.plugins.permissions;
-            const list = [
-                permissions.BLUETOOTH_SCAN,
-                permissions.BLUETOOTH_CONNECT,
-                permissions.ACCESS_FINE_LOCATION
-            ];
-            permissions.requestPermissions(list, function(status) {
-                if (status.hasPermission) pushLog("Bluetooth İzinleri Onaylandı.");
-                else alert("UYARI: İzinler eksik!");
-            }, function() { pushLog("İzin hatası."); });
+            const p = cordova.plugins.permissions;
+            p.requestPermissions([p.BLUETOOTH_SCAN, p.BLUETOOTH_CONNECT, p.ACCESS_FINE_LOCATION, p.WRITE_EXTERNAL_STORAGE], 
+            function(s) { pushLog("İzinler Tamam."); }, function() { alert("İzin Hatası!"); });
         }
     }
 
     function initBT() {
         if (typeof bluetoothSerial !== 'undefined') {
-            pushLog("Eşleşmiş cihazlar aranıyor...");
             bluetoothSerial.list(function(devices) {
-                if (devices.length > 0) {
-                    let targetDevice = devices.find(d => d.name.includes("HC-06")) || devices[0];
-                    pushLog("Bağlanıyor: " + targetDevice.name);
-                    bluetoothSerial.connect(targetDevice.address, function() {
+                let dev = devices.find(d => d.name.includes("HC-06")) || devices[0];
+                if(dev) {
+                    pushLog("Bağlanıyor: " + dev.name);
+                    bluetoothSerial.connect(dev.address, function() {
                         document.getElementById('bt-status').innerText = "BAĞLANDI";
                         document.getElementById('bt-status').style.color = "var(--green)";
                         document.getElementById('conn-btn').style.display = "none";
                         document.getElementById('start-btn').disabled = false;
                         pushLog("Bağlantı Başarılı!");
                         bluetoothSerial.subscribe('\n', processRawData);
-                    }, function() { alert("Bağlantı hatası!"); });
-                } else {
-                    alert("Eşleşmiş cihaz bulunamadı!");
-                }
-            }, function() { alert("Liste alınamadı."); });
+                    }, function() { alert("Bağlantı Hatası!"); });
+                } else { alert("Eşleşmiş cihaz yok!"); }
+            }, function() { alert("Liste Hatası"); });
         }
     }
 
     function processRawData(data) {
         let d = data.trim();
-        if (d === "TARAMA_BITTI") {
-            document.getElementById('start-btn').innerText = "YENİ TARAMA";
-            document.getElementById('start-btn').disabled = false;
-            pushLog(">>> TARAMA TAMAMLANDI <<<");
-        } else if (d.startsWith('{')) {
+        if (d.startsWith('{')) {
             try {
                 let json = JSON.parse(d);
-                updateUI(json);
-            } catch(e) { console.log("Veri Hatası"); }
+                document.getElementById('v-val').innerText = json.v.toFixed(2);
+                document.getElementById('coord-val').innerText = `${json.y+1}.${json.x+1}`;
+                scanData[json.y][json.x] = json.v;
+                Plotly.restyle('thermal-engine', { z: [scanData] });
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerHTML = `<span>[${json.y+1},${json.x+1}] ${json.v.toFixed(2)}V</span>`;
+                document.getElementById('log-list').prepend(entry);
+            } catch(e) {}
         }
-    }
-
-    function updateUI(data) {
-        document.getElementById('v-val').innerText = data.v.toFixed(2);
-        document.getElementById('coord-val').innerText = `${data.y+1}.${data.x+1}`;
-        scanData[data.y][data.x] = data.v;
-        Plotly.restyle('thermal-engine', { z: [scanData] });
-        
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = `<span>[${data.y+1},${data.x+1}] Veri: ${data.v.toFixed(2)}V</span>`;
-        document.getElementById('log-list').prepend(entry);
     }
 
     function initGraph() {
@@ -168,38 +143,62 @@
             z: scanData, 
             x: lines, 
             type: currentMode, 
-            colorscale: customColorscale, // Yeni skala eklendi
-            zmin: 0, 
-            zmax: 20,
+            colorscale: thermalColorscale,
+            zmin: 0, zmax: 20,
+            zsmooth: currentMode === 'heatmap' ? 'best' : false, // TERMAL GEÇİŞİ YUMUŞATIR
             showscale: true
         };
         const layout = { 
-            paper_bgcolor: '#000', 
-            plot_bgcolor: '#000', 
-            margin: { t: 10, b: 20, l: 30, r: 10 }, 
-            xaxis: { tickfont: {size: 8}, gridcolor: '#111' }, 
-            yaxis: { autorange: 'reversed', tickfont: {size: 8}, gridcolor: '#111' } 
+            paper_bgcolor: '#000', plot_bgcolor: '#000', 
+            margin: { t: 10, b: 20, l: 30, r: 10 },
+            xaxis: { gridcolor: '#111' }, yaxis: { autorange: 'reversed', gridcolor: '#111' }
         };
         Plotly.newPlot('thermal-engine', [trace], layout, {responsive: true, displayModeBar: false});
     }
 
-    function switchMode(m) { currentMode = m; initGraph(); }
+    function switchMode(m) { 
+        currentMode = m; 
+        document.getElementById('m-2d').classList.toggle('active', m === 'heatmap');
+        document.getElementById('m-3d').classList.toggle('active', m === 'surface');
+        initGraph(); 
+    }
 
     function sendCmd(c) {
         if (typeof bluetoothSerial !== 'undefined') {
-            document.getElementById('start-btn').disabled = true;
-            bluetoothSerial.write(c, function() {
-                pushLog("Komut Gönderildi.");
-            }, function() { alert("Komut Hatası!"); });
+            bluetoothSerial.write(c, function() { pushLog("Tarama Başlatıldı."); });
+        }
+    }
+
+    // GERÇEK JSON KAYIT FONKSİYONU
+    function saveDataJSON() {
+        const fileName = "SPILX_DATA_" + Date.now() + ".json";
+        const content = JSON.stringify({
+            cihaz: "SPIL-X PRO",
+            tarih: new Date().toLocaleString(),
+            veriler: scanData
+        }, null, 2);
+
+        if (typeof cordova !== 'undefined') {
+            const path = cordova.file.externalRootDirectory + "Download/"; 
+            window.resolveLocalFileSystemURL(path, function(dir) {
+                dir.getFile(fileName, { create: true }, function(fileEntry) {
+                    fileEntry.createWriter(function(fileWriter) {
+                        fileWriter.onwriteend = function() { alert("Dosya İndirilenler Klasörüne Kaydedildi:\n" + fileName); };
+                        fileWriter.write(new Blob([content], { type: 'application/json' }));
+                    });
+                });
+            }, function(err) { alert("Klasör Erişim Hatası!"); });
+        } else {
+            console.log(content);
+            alert("Sadece APK modunda dosyaya yazar.");
         }
     }
 
     function clearData() {
-        if(!confirm("Veriler temizlensin mi?")) return;
+        if(!confirm("Silinsin mi?")) return;
         scanData = Array(10).fill().map(() => Array(4).fill(null));
         initGraph();
         document.getElementById('log-list').innerHTML = '';
-        pushLog("Ekran temizlendi.");
     }
 
     function pushLog(m) {
