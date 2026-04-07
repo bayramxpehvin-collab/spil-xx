@@ -17,7 +17,7 @@
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .stat-card { background: var(--panel); border: 1px solid #222; padding: 10px; text-align: center; border-radius: 8px; }
         .val { font-family: 'Orbitron'; font-size: 1.4rem; color: var(--neon); display: block; }
-        .label { font-size: 0.6rem; color: #666; text-transform: uppercase; }
+        .label { font-size: 0.6rem; color: #666; text-transform: uppercase; margin-bottom: 2px; }
         #viewport-container { width: 100%; height: 320px; background: #050505; border: 1px solid #1a1a1a; border-radius: 8px; position: relative; }
         #thermal-engine { width: 100%; height: 100%; }
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -26,6 +26,7 @@
         .btn.active { background: var(--neon); color: #000; box-shadow: 0 0 10px var(--neon); }
         .btn-connect { border-color: var(--green); color: var(--green); grid-column: 1 / 3; }
         .btn-start { border-color: var(--orange); color: var(--orange); grid-column: 1 / 3; }
+        .btn-analysis { border-color: var(--neon); background: rgba(0, 242, 255, 0.05); grid-column: 1 / 3; margin-top: 5px; }
         .btn-save { border-color: var(--yellow); color: var(--yellow); }
         .btn-clear { border-color: var(--red); color: var(--red); }
         .analysis-box { background: #050505; border: 1px solid #111; border-radius: 8px; padding: 10px; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
@@ -59,6 +60,7 @@
         <button class="btn" id="m-3d" onclick="switchMode('surface')">3D ANALİZ</button>
         <button class="btn btn-save" onclick="saveDataJSON()">JSON KAYDET</button>
         <button class="btn btn-clear" onclick="clearData()">TEMİZLE</button>
+        <button class="btn btn-analysis" onclick="goToAnalysis()">PRO ANALİZ MERKEZİNE GİT</button>
     </div>
 
     <div id="viewport-container">
@@ -166,6 +168,19 @@
     function sendCmd(c) {
         if (typeof bluetoothSerial !== 'undefined') {
             bluetoothSerial.write(c, function() { pushLog("Tarama Başlatıldı."); });
+        }
+    }
+
+    // ANALİZ MERKEZİNE GİT FONKSİYONU
+    function goToAnalysis() {
+        // Veri varsa uyarı ver
+        const hasData = scanData.flat().some(v => v !== null);
+        if (hasData) {
+            if(confirm("Tarama verilerini kaydettiyseniz analiz merkezine geçebilirsiniz. Devam edilsin mi?")) {
+                window.location.href = "kontrol.html";
+            }
+        } else {
+            window.location.href = "kontrol.html";
         }
     }
 
