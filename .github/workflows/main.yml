@@ -20,6 +20,7 @@ jobs:
           cd build_folder
           cordova platform add android
           cordova plugin add cordova-plugin-bluetooth-serial
+          cordova plugin add cordova-plugin-file
           cordova plugin add cordova-plugin-android-permissions
       - name: Build Android APK
         run: |
