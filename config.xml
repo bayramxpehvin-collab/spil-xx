@@ -11,11 +11,16 @@
     <plugin name="cordova-plugin-android-permissions" source="npm" />
 
     <platform name="android">
+        <preference name="Scheme" value="file" />
+        <preference name="Hostname" value="localhost" />
+        
+        <preference name="AndroidInsecureFileModeEnabled" value="true" />
+        <preference name="AllowUntrustedCertificate" value="true" />
+
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
             <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
             <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
-            
             <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
             <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
             <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -29,6 +34,7 @@
     <access origin="*" />
     <allow-navigation href="*" />
     <allow-navigation href="file://*" />
+    <allow-navigation href="content://*" />
     <allow-intent href="*" />
     
     <preference name="AllowInlineMediaPlayback" value="true" />
