@@ -69,7 +69,7 @@
         <button class="btn" id="m-3d" onclick="switchMode('surface')">3D ANALİZ</button>
         <button class="btn btn-save" onclick="saveDataJSON()">JSON KAYDET</button>
         <button class="btn btn-clear" onclick="clearData()">TEMİZLE</button>
-     <a href="kontrol.html" class="btn btn-analysis">PRO ANALİZ MERKEZİNE GİT</a>
+    <button class="btn btn-analysis" onclick="goToAnalysis()">PRO ANALİZ MERKEZİNE GİT</button>
     </div>
 
     <div id="viewport-container">
@@ -174,15 +174,19 @@
         }
     }
 
-    function goToAnalysis() {
-        if (scanData.flat().some(v => v !== null)) {
-            if(confirm("Verileri kaydettiyseniz Analiz Merkezi'ne geçebilirsiniz?")) {
-                window.location.href = "kontrol.html";
-            }
-        } else {
-            window.location.href = "kontrol.html";
-        }
-    }
+  function goToAnalysis() {
+    // Uygulamanın çalıştığı ana dizini bul
+    var path = window.location.pathname;
+    var directory = path.substring(0, path.lastIndexOf('/'));
+    
+    // Klasör yapısına göre kontrol.html'in tam yolunu oluştur
+    var targetFile = directory + "/kontrol.html";
+    
+    console.log("Hedef Yol: " + targetFile);
+    
+    // Geçişi tarayıcı üzerinden değil, yerel dosya yolu üzerinden zorla
+    window.location.replace(targetFile);
+}
 
     function saveDataJSON() {
         const fileName = "SPILX_DATA_" + Date.now() + ".json";
