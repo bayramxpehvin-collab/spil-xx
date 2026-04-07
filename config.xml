@@ -28,6 +28,7 @@
 
     <access origin="*" />
     <allow-navigation href="*" />
+    <allow-navigation href="file://*" />
     <allow-intent href="*" />
     
     <preference name="AllowInlineMediaPlayback" value="true" />
