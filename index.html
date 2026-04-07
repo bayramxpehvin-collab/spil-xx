@@ -78,7 +78,22 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-    // ANDROID 13 İZİN YÖNETİMİ
+    // ÖZEL RENK SKALASI (Voltaj aralıklarına göre)
+    // 0.0 - 5.0 (Metal - Kırmızı)
+    // 5.1 - 9.9 (Mineral - Sarı)
+    // 10.0 - 16.4 (Zemin - Yeşil)
+    // 16.5 - 20.0 (Boşluk - Mavi)
+    const customColorscale = [
+        [0, 'rgb(255, 0, 0)'],       // 0V -> Kırmızı (Metal)
+        [0.25, 'rgb(255, 0, 0)'],    // 5V
+        [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Sarı (Mineral)
+        [0.495, 'rgb(255, 255, 0)'], // 9.9V
+        [0.5, 'rgb(0, 255, 106)'],   // 10V -> Yeşil (Zemin)
+        [0.82, 'rgb(0, 255, 106)'],  // 16.4V
+        [0.825, 'rgb(0, 242, 255)'], // 16.5V -> Mavi (Boşluk)
+        [1, 'rgb(0, 242, 255)']      // 20V
+    ];
+
     document.addEventListener('deviceready', function() {
         pushLog("Sistem Başlatıldı...");
         requestAndroidPermissions();
@@ -93,42 +108,34 @@
                 permissions.BLUETOOTH_CONNECT,
                 permissions.ACCESS_FINE_LOCATION
             ];
-
             permissions.requestPermissions(list, function(status) {
-                if (status.hasPermission) {
-                    pushLog("Bluetooth İzinleri Onaylandı.");
-                } else {
-                    alert("UYARI: Bluetooth izinleri verilmedi. Uygulama modülü göremez!");
-                }
-            }, function() {
-                pushLog("İzin isteme sırasında bir hata oluştu.");
-            });
+                if (status.hasPermission) pushLog("Bluetooth İzinleri Onaylandı.");
+                else alert("UYARI: İzinler eksik!");
+            }, function() { pushLog("İzin hatası."); });
         }
     }
 
-   function initBT() {
-    if (typeof bluetoothSerial !== 'undefined') {
-        pushLog("Eşleşmiş cihazlar listeleniyor...");
-        bluetoothSerial.list(function(devices) {
-            if (devices.length > 0) {
-                // İlk bulduğun cihaza (HC-06) otomatik bağlanmayı dene
-                let targetDevice = devices.find(d => d.name.includes("HC-06")) || devices[0];
-                pushLog("Bulundu: " + targetDevice.name + " - Bağlanılıyor...");
-                
-                bluetoothSerial.connect(targetDevice.address, function() {
-                    document.getElementById('bt-status').innerText = "BAĞLANDI";
-                    document.getElementById('bt-status').style.color = "var(--green)";
-                    document.getElementById('conn-btn').style.display = "none";
-                    document.getElementById('start-btn').disabled = false;
-                    pushLog("Bağlantı Başarılı!");
-                    bluetoothSerial.subscribe('\n', processRawData);
-                }, function() { alert("Bağlantı hatası!"); });
-            } else {
-                alert("Eşleşmiş cihaz bulunamadı! Lütfen ayarlardan HC-06'yı eşleştirin.");
-            }
-        }, function() { alert("Liste alınamadı."); });
+    function initBT() {
+        if (typeof bluetoothSerial !== 'undefined') {
+            pushLog("Eşleşmiş cihazlar aranıyor...");
+            bluetoothSerial.list(function(devices) {
+                if (devices.length > 0) {
+                    let targetDevice = devices.find(d => d.name.includes("HC-06")) || devices[0];
+                    pushLog("Bağlanıyor: " + targetDevice.name);
+                    bluetoothSerial.connect(targetDevice.address, function() {
+                        document.getElementById('bt-status').innerText = "BAĞLANDI";
+                        document.getElementById('bt-status').style.color = "var(--green)";
+                        document.getElementById('conn-btn').style.display = "none";
+                        document.getElementById('start-btn').disabled = false;
+                        pushLog("Bağlantı Başarılı!");
+                        bluetoothSerial.subscribe('\n', processRawData);
+                    }, function() { alert("Bağlantı hatası!"); });
+                } else {
+                    alert("Eşleşmiş cihaz bulunamadı!");
+                }
+            }, function() { alert("Liste alınamadı."); });
+        }
     }
-}
 
     function processRawData(data) {
         let d = data.trim();
@@ -157,8 +164,22 @@
     }
 
     function initGraph() {
-        const trace = { z: scanData, x: lines, type: currentMode, colorscale: 'Jet', zmin: 0, zmax: 20 };
-        const layout = { paper_bgcolor: '#000', plot_bgcolor: '#000', margin: { t: 10, b: 20, l: 30, r: 10 }, xaxis: { tickfont: {size: 8}, gridcolor: '#111' }, yaxis: { autorange: 'reversed', tickfont: {size: 8}, gridcolor: '#111' } };
+        const trace = { 
+            z: scanData, 
+            x: lines, 
+            type: currentMode, 
+            colorscale: customColorscale, // Yeni skala eklendi
+            zmin: 0, 
+            zmax: 20,
+            showscale: true
+        };
+        const layout = { 
+            paper_bgcolor: '#000', 
+            plot_bgcolor: '#000', 
+            margin: { t: 10, b: 20, l: 30, r: 10 }, 
+            xaxis: { tickfont: {size: 8}, gridcolor: '#111' }, 
+            yaxis: { autorange: 'reversed', tickfont: {size: 8}, gridcolor: '#111' } 
+        };
         Plotly.newPlot('thermal-engine', [trace], layout, {responsive: true, displayModeBar: false});
     }
 
@@ -168,8 +189,8 @@
         if (typeof bluetoothSerial !== 'undefined') {
             document.getElementById('start-btn').disabled = true;
             bluetoothSerial.write(c, function() {
-                pushLog("Komut: " + c + " gönderildi.");
-            }, function() { alert("Komut Gönderilemedi!"); });
+                pushLog("Komut Gönderildi.");
+            }, function() { alert("Komut Hatası!"); });
         }
     }
 
