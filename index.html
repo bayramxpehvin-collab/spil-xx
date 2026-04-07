@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SPIL-X PRO | THERMAL ANALYST</title>
+    <title>SPIL-X PRO </title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="cordova.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
@@ -172,18 +172,17 @@
     }
 
     // ANALİZ MERKEZİNE GİT FONKSİYONU
-    function goToAnalysis() {
-        // Veri varsa uyarı ver
-        const hasData = scanData.flat().some(v => v !== null);
-        if (hasData) {
-            if(confirm("Tarama verilerini kaydettiyseniz analiz merkezine geçebilirsiniz. Devam edilsin mi?")) {
-                window.location.href = "kontrol.html";
-            }
-        } else {
-            window.location.href = "kontrol.html";
+  function goToAnalysis() {
+    const hasData = scanData.flat().some(v => v !== null);
+    if (hasData) {
+        if(confirm("Tarama verilerini kaydettiyseniz analiz merkezine geçebilirsiniz?")) {
+            // Başına https:// eklemeden doğrudan dosya adını yazıyoruz
+            window.location.assign("kontrol.html"); 
         }
+    } else {
+        window.location.assign("kontrol.html");
     }
-
+}
     // GERÇEK JSON KAYIT FONKSİYONU
     function saveDataJSON() {
         const fileName = "SPILX_DATA_" + Date.now() + ".json";
