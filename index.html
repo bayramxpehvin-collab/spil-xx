@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SPIL-X PRO </title>
+    <title>SPIL-X PRO | THERMAL ANALYST</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <script src="cordova.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
@@ -32,6 +32,15 @@
         .analysis-box { background: #050505; border: 1px solid #111; border-radius: 8px; padding: 10px; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
         #log-list { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; color: #aaa; }
         .ai-msg { color: var(--neon); font-weight: bold; padding: 5px; border: 1px dashed var(--neon); margin-bottom: 5px; text-align: center; font-size: 0.7rem; }
+        
+        /* Dinamik Log Stili */
+        .log-entry { 
+            padding: 4px 8px; 
+            border-bottom: 1px solid #111; 
+            display: flex; 
+            justify-content: space-between; 
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -44,11 +53,11 @@
 <div class="content">
     <div class="dashboard">
         <div class="stat-card">
-            <span class="label">GERİLİM (V)</span>
+            <span class="label">ANLIK GERİLİM (V)</span>
             <span id="v-val" class="val">--.--</span>
         </div>
         <div class="stat-card">
-            <span class="label">KOORDİNAT</span>
+            <span class="label">KONUM (Y.X)</span>
             <span id="coord-val" class="val">0.0</span>
         </div>
     </div>
@@ -68,8 +77,8 @@
     </div>
 
     <div class="analysis-box">
-        <div class="label" style="margin-bottom:5px;">SAHA VERİ GÜNLÜĞÜ</div>
-        <div id="log-list"><div class="ai-msg">Sistem hazır.</div></div>
+        <div class="label" style="margin-bottom:5px;">CANLI SAHA ANALİZ GÜNLÜĞÜ</div>
+        <div id="log-list"><div class="ai-msg">Sistem hazır. Veri bekleniyor...</div></div>
     </div>
 </div>
 
@@ -78,48 +87,33 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-    // ÖZEL TERMAL SKALA
     const thermalColorscale = [
-        [0, 'rgb(255, 0, 0)'],       // 0V -> Metal (Kırmızı)
-        [0.25, 'rgb(255, 0, 0)'],    // 5V
-        [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Mineral (Sarı)
-        [0.495, 'rgb(255, 255, 0)'], // 9.9V
-        [0.5, 'rgb(0, 255, 106)'],   // 10V -> Zemin (Yeşil)
-        [0.82, 'rgb(0, 255, 106)'],  // 16.4V
-        [0.825, 'rgb(0, 242, 255)'], // 16.5V -> Boşluk (Mavi)
-        [1, 'rgb(0, 242, 255)']      // 20V
+        [0, 'rgb(255, 0, 0)'], [0.25, 'rgb(255, 0, 0)'],
+        [0.251, 'rgb(255, 255, 0)'], [0.495, 'rgb(255, 255, 0)'],
+        [0.5, 'rgb(0, 255, 106)'], [0.82, 'rgb(0, 255, 106)'],
+        [0.825, 'rgb(0, 242, 255)'], [1, 'rgb(0, 242, 255)']
     ];
 
     document.addEventListener('deviceready', function() {
         pushLog("Sistem Başlatıldı...");
-        requestPermissions();
         initGraph();
     }, false);
-
-    function requestPermissions() {
-        if (typeof cordova !== 'undefined' && cordova.plugins.permissions) {
-            const p = cordova.plugins.permissions;
-            p.requestPermissions([p.BLUETOOTH_SCAN, p.BLUETOOTH_CONNECT, p.ACCESS_FINE_LOCATION, p.WRITE_EXTERNAL_STORAGE], 
-            function(s) { pushLog("İzinler Tamam."); }, function() { alert("İzin Hatası!"); });
-        }
-    }
 
     function initBT() {
         if (typeof bluetoothSerial !== 'undefined') {
             bluetoothSerial.list(function(devices) {
                 let dev = devices.find(d => d.name.includes("HC-06")) || devices[0];
                 if(dev) {
-                    pushLog("Bağlanıyor: " + dev.name);
                     bluetoothSerial.connect(dev.address, function() {
                         document.getElementById('bt-status').innerText = "BAĞLANDI";
                         document.getElementById('bt-status').style.color = "var(--green)";
                         document.getElementById('conn-btn').style.display = "none";
                         document.getElementById('start-btn').disabled = false;
-                        pushLog("Bağlantı Başarılı!");
+                        pushLog("Cihaz Bağlantısı Kuruldu.");
                         bluetoothSerial.subscribe('\n', processRawData);
                     }, function() { alert("Bağlantı Hatası!"); });
-                } else { alert("Eşleşmiş cihaz yok!"); }
-            }, function() { alert("Liste Hatası"); });
+                }
+            });
         }
     }
 
@@ -128,83 +122,81 @@
         if (d.startsWith('{')) {
             try {
                 let json = JSON.parse(d);
-                document.getElementById('v-val').innerText = json.v.toFixed(2);
+                let v = json.v;
+                document.getElementById('v-val').innerText = v.toFixed(2);
                 document.getElementById('coord-val').innerText = `${json.y+1}.${json.x+1}`;
-                scanData[json.y][json.x] = json.v;
+                scanData[json.y][json.x] = v;
                 Plotly.restyle('thermal-engine', { z: [scanData] });
+
+                // Voltaj Anlamlandırma ve Renklendirme
+                let label = "";
+                let color = "";
+                
+                if (v <= 5.0) { 
+                    label = "METAL / İLETKEN"; 
+                    color = "var(--red)"; 
+                } else if (v <= 9.9) { 
+                    label = "MİNERAL"; 
+                    color = "var(--yellow)"; 
+                } else if (v <= 16.4) { 
+                    label = "ZEMİN / TOPRAK"; 
+                    color = "var(--green)"; 
+                } else { 
+                    label = "BOŞLUK / ODA"; 
+                    color = "var(--neon)"; 
+                }
+
+                // Log Listesine Ekleme
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
-                entry.innerHTML = `<span>[${json.y+1},${json.x+1}] ${json.v.toFixed(2)}V</span>`;
-                document.getElementById('log-list').prepend(entry);
+                entry.style.color = color;
+                entry.innerHTML = `<span>[${json.y+1},${json.x+1}] ${v.toFixed(2)}V</span> <span>${label}</span>`;
+                
+                const logList = document.getElementById('log-list');
+                logList.prepend(entry);
+                if(logList.children.length > 50) logList.lastChild.remove(); // Hafıza yönetimi
+
             } catch(e) {}
         }
     }
 
     function initGraph() {
-        const trace = { 
-            z: scanData, 
-            x: lines, 
-            type: currentMode, 
-            colorscale: thermalColorscale,
-            zmin: 0, zmax: 20,
-            zsmooth: currentMode === 'heatmap' ? 'best' : false, // TERMAL GEÇİŞİ YUMUŞATIR
-            showscale: true
-        };
-        const layout = { 
-            paper_bgcolor: '#000', plot_bgcolor: '#000', 
-            margin: { t: 10, b: 20, l: 30, r: 10 },
-            xaxis: { gridcolor: '#111' }, yaxis: { autorange: 'reversed', gridcolor: '#111' }
-        };
+        const trace = { z: scanData, x: lines, type: currentMode, colorscale: thermalColorscale, zmin: 0, zmax: 20, zsmooth: 'best' };
+        const layout = { paper_bgcolor: '#000', plot_bgcolor: '#000', margin: { t: 10, b: 20, l: 30, r: 10 }, xaxis: { gridcolor: '#111' }, yaxis: { autorange: 'reversed', gridcolor: '#111' } };
         Plotly.newPlot('thermal-engine', [trace], layout, {responsive: true, displayModeBar: false});
     }
 
-    function switchMode(m) { 
-        currentMode = m; 
-        document.getElementById('m-2d').classList.toggle('active', m === 'heatmap');
-        document.getElementById('m-3d').classList.toggle('active', m === 'surface');
-        initGraph(); 
-    }
+    function switchMode(m) { currentMode = m; initGraph(); }
 
     function sendCmd(c) {
         if (typeof bluetoothSerial !== 'undefined') {
-            bluetoothSerial.write(c, function() { pushLog("Tarama Başlatıldı."); });
+            bluetoothSerial.write(c, function() { pushLog("Tarama Komutu Gönderildi."); });
         }
     }
 
-    // ANALİZ MERKEZİNE GİT FONKSİYONU
-  function goToAnalysis() {
-    const hasData = scanData.flat().some(v => v !== null);
-    if (hasData) {
-        if(confirm("Tarama verilerini kaydettiyseniz analiz merkezine geçebilirsiniz?")) {
-            // Başına https:// eklemeden doğrudan dosya adını yazıyoruz
-            window.location.assign("kontrol.html"); 
+    function goToAnalysis() {
+        if (scanData.flat().some(v => v !== null)) {
+            if(confirm("Verileri kaydettiyseniz Analiz Merkezi'ne geçebilirsiniz?")) {
+                window.location.href = "kontrol.html";
+            }
+        } else {
+            window.location.href = "kontrol.html";
         }
-    } else {
-        window.location.assign("kontrol.html");
     }
-}
-    // GERÇEK JSON KAYIT FONKSİYONU
+
     function saveDataJSON() {
         const fileName = "SPILX_DATA_" + Date.now() + ".json";
-        const content = JSON.stringify({
-            cihaz: "SPIL-X PRO",
-            tarih: new Date().toLocaleString(),
-            veriler: scanData
-        }, null, 2);
-
+        const content = JSON.stringify({ cihaz: "SPIL-X PRO", tarih: new Date().toLocaleString(), veriler: scanData }, null, 2);
         if (typeof cordova !== 'undefined') {
             const path = cordova.file.externalRootDirectory + "Download/"; 
             window.resolveLocalFileSystemURL(path, function(dir) {
                 dir.getFile(fileName, { create: true }, function(fileEntry) {
-                    fileEntry.createWriter(function(fileWriter) {
-                        fileWriter.onwriteend = function() { alert("Dosya İndirilenler Klasörüne Kaydedildi:\n" + fileName); };
-                        fileWriter.write(new Blob([content], { type: 'application/json' }));
+                    fileEntry.createWriter(function(fw) {
+                        fw.onwriteend = function() { alert("Kaydedildi: " + fileName); };
+                        fw.write(new Blob([content], { type: 'application/json' }));
                     });
                 });
-            }, function(err) { alert("Klasör Erişim Hatası!"); });
-        } else {
-            console.log(content);
-            alert("Sadece APK modunda dosyaya yazar.");
+            });
         }
     }
 
