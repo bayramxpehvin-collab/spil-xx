@@ -11,20 +11,15 @@
         :root { --neon: #00f2ff; --red: #ff3c00; --orange: #ff9100; --yellow: #ffcc00; --green: #00ff6a; --bg: #000; --panel: rgba(15, 15, 15, 0.95); }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: var(--bg); color: white; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-
         .hud-header { padding: 10px 15px; border-bottom: 2px solid var(--neon); display: flex; justify-content: space-between; align-items: center; background: #000; z-index: 10; }
         .logo { font-family: 'Orbitron'; font-size: 0.8rem; font-weight: 900; color: var(--neon); letter-spacing: 1px; }
-
         .content { flex: 1; display: flex; flex-direction: column; overflow-y: auto; padding: 10px; gap: 10px; }
-
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .stat-card { background: var(--panel); border: 1px solid #222; padding: 10px; text-align: center; border-radius: 8px; }
         .val { font-family: 'Orbitron'; font-size: 1.4rem; color: var(--neon); display: block; }
         .label { font-size: 0.6rem; color: #666; text-transform: uppercase; }
-
         #viewport-container { width: 100%; height: 320px; background: #050505; border: 1px solid #1a1a1a; border-radius: 8px; position: relative; }
         #thermal-engine { width: 100%; height: 100%; }
-
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .btn { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; font-family: 'Orbitron'; font-size: 0.7rem; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         .btn:active { background: var(--neon); color: #000; transform: scale(0.98); }
@@ -33,8 +28,6 @@
         .btn-start { border-color: var(--orange); color: var(--orange); grid-column: 1 / 3; }
         .btn-save { border-color: var(--yellow); color: var(--yellow); }
         .btn-clear { border-color: var(--red); color: var(--red); }
-        .btn:disabled { border-color: #333; color: #333; opacity: 0.5; }
-
         .analysis-box { background: #050505; border: 1px solid #111; border-radius: 8px; padding: 10px; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
         #log-list { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; color: #aaa; }
         .log-entry { border-left: 3px solid #333; padding-left: 8px; margin-bottom: 4px; border-bottom: 1px solid #111; }
@@ -76,7 +69,7 @@
     <div class="analysis-box">
         <div class="label" style="margin-bottom:5px;">AI SAHA ANALİZİ</div>
         <div id="log-list">
-            <div class="ai-msg">Sistem hazır. HC-06 bağlantısı kurun.</div>
+            <div class="ai-msg">Sistem hazır.</div>
         </div>
     </div>
 </div>
@@ -86,37 +79,53 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-    // 1. HC-06 UYUMLU BLUETOOTH BAĞLANTISI (CORDOVA)
+    // ANDROID 13 İZİN KONTROLÜ
+    document.addEventListener('deviceready', function() {
+        if (typeof cordova !== 'undefined' && cordova.plugins.permissions) {
+            const permissions = cordova.plugins.permissions;
+            const list = [
+                permissions.BLUETOOTH_SCAN,
+                permissions.BLUETOOTH_CONNECT,
+                permissions.ACCESS_FINE_LOCATION
+            ];
+
+            permissions.requestPermissions(list, function(status) {
+                if (status.hasPermission) pushLog("İzinler Onaylandı.");
+                else pushLog("Hata: İzinler reddedildi!");
+            }, function() {
+                pushLog("İzin istenirken hata oluştu.");
+            });
+        }
+        initGraph();
+    }, false);
+
     function initBT() {
         if (typeof bluetoothSerial !== 'undefined') {
-            pushLog("Cihazlar taranıyor...");
-            // Eşleşmiş cihaz listesini açar
-            bluetoothSerial.showPortPicker(function(address) {
-                pushLog("Bağlanıyor: " + address);
-                bluetoothSerial.connect(address, function() {
-                    document.getElementById('bt-status').innerText = "BAĞLANDI";
-                    document.getElementById('bt-status').style.color = "var(--green)";
-                    document.getElementById('conn-btn').style.display = "none";
-                    document.getElementById('start-btn').disabled = false;
-                    pushLog("Senkronizasyon başarılı.");
-
-                    // Veri akışını dinlemeye başla
-                    bluetoothSerial.subscribe('\n', function(data) {
-                        processRawData(data);
+            bluetoothSerial.isEnabled(function() {
+                pushLog("Eşleşmiş cihazlar aranıyor...");
+                bluetoothSerial.showPortPicker(function(address) {
+                    pushLog("Bağlanıyor: " + address);
+                    bluetoothSerial.connect(address, function() {
+                        document.getElementById('bt-status').innerText = "BAĞLANDI";
+                        document.getElementById('bt-status').style.color = "var(--green)";
+                        document.getElementById('conn-btn').style.display = "none";
+                        document.getElementById('start-btn').disabled = false;
+                        pushLog("Senkronizasyon başarılı.");
+                        bluetoothSerial.subscribe('\n', processRawData);
+                    }, function(err) { 
+                        alert("Bağlantı Başarısız!"); 
                     });
-                }, function(err) { 
-                    pushLog("Bağlantı hatası!"); 
-                    alert("Cihaza bağlanılamadı.");
+                }, function() { 
+                    alert("Cihaz listesi açılamadı. Lütfen Bluetooth Ayarlarından HC-06 ile eşleşin."); 
                 });
-            }, function() { 
-                alert("Bluetooth listesi alınamadı."); 
+            }, function() {
+                alert("Lütfen telefonun Bluetooth'unu açın!");
             });
         } else {
-            alert("Lütfen APK olarak kurun. Tarayıcıda HC-06 çalışmaz.");
+            alert("Sadece APK modunda çalışır.");
         }
     }
 
-    // 2. VERİ İŞLEME (HC-06 FORMATINA UYGUN)
     function processRawData(data) {
         let d = data.trim();
         if (d === "TARAMA_BITTI") {
@@ -127,9 +136,7 @@
             try {
                 let json = JSON.parse(d);
                 updateUI(json);
-            } catch(e) {
-                console.log("JSON Parse Hatası");
-            }
+            } catch(e) { console.log("JSON Error"); }
         }
     }
 
@@ -137,70 +144,32 @@
         document.getElementById('v-val').innerText = data.v.toFixed(2);
         document.getElementById('coord-val').innerText = `${data.y+1}.${data.x+1}`;
         scanData[data.y][data.x] = data.v;
-        
         Plotly.restyle('thermal-engine', { z: [scanData] });
-
-        let type = "ZEMİN";
-        let col = "var(--green)";
-        if(data.v < 5.0) { type = "METAL/İLETKEN"; col = "red"; }
-        else if(data.v < 10.0) { type = "MİNERAL"; col = "yellow"; }
-        else if(data.v > 16.5) { type = "BOŞLUK/ODA"; col = "#00f2ff"; }
-
         const entry = document.createElement('div');
         entry.className = 'log-entry';
-        entry.innerHTML = `<span style="color:${col}">[${data.y+1},${data.x+1}] ${data.v.toFixed(2)}V -> ${type}</span>`;
+        entry.innerHTML = `<span>[${data.y+1},${data.x+1}] ${data.v.toFixed(2)}V</span>`;
         document.getElementById('log-list').prepend(entry);
     }
 
-    // 3. GRAFİK MOTORU
     function initGraph() {
-        const trace = {
-            z: scanData, x: lines, type: currentMode,
-            colorscale: 'Jet', zmin: 0, zmax: 20,
-            showscale: false
-        };
-        const layout = {
-            paper_bgcolor: '#000', plot_bgcolor: '#000',
-            margin: { t: 10, b: 20, l: 30, r: 10 },
-            xaxis: { gridcolor: '#111', tickfont: {size: 8} },
-            yaxis: { autorange: 'reversed', gridcolor: '#111', tickfont: {size: 8} },
-            scene: { zaxis: {range: [0, 20]}, aspectmode: 'manual', aspectratio: {x:1, y:2, z:0.5} }
-        };
+        const trace = { z: scanData, x: lines, type: currentMode, colorscale: 'Jet', zmin: 0, zmax: 20 };
+        const layout = { paper_bgcolor: '#000', plot_bgcolor: '#000', margin: { t: 10, b: 20, l: 30, r: 10 }, xaxis: { tickfont: {size: 8} }, yaxis: { autorange: 'reversed', tickfont: {size: 8} } };
         Plotly.newPlot('thermal-engine', [trace], layout, {responsive: true, displayModeBar: false});
     }
 
-    function switchMode(m) {
-        currentMode = m;
-        document.getElementById('m-2d').classList.toggle('active', m === 'heatmap');
-        document.getElementById('m-3d').classList.toggle('active', m === 'surface');
-        initGraph();
-    }
+    function switchMode(m) { currentMode = m; initGraph(); }
 
-    // 4. KOMUT GÖNDERME (HC-06)
     function sendCmd(c) {
         if (typeof bluetoothSerial !== 'undefined') {
             document.getElementById('start-btn').disabled = true;
-            document.getElementById('start-btn').innerText = "TARANIYOR...";
-            bluetoothSerial.write(c, function() {
-                pushLog("Komut gönderildi: " + c);
-            }, function() { 
-                alert("Komut iletilemedi."); 
-            });
+            bluetoothSerial.write(c, null, function() { alert("Hata!"); });
         }
     }
 
-    function saveJSON() {
-        const dataStr = JSON.stringify({date: new Date(), data: scanData}, null, 2);
-        alert("Veri Hazır:\n" + dataStr.substring(0,100) + "...");
-        // Mobil cihazda kaydetme işlemleri burada geliştirilebilir
-    }
-
     function clearData() {
-        if(!confirm("Veriler silinsin mi?")) return;
         scanData = Array(10).fill().map(() => Array(4).fill(null));
         initGraph();
         document.getElementById('log-list').innerHTML = '';
-        pushLog("Hafıza temizlendi.");
     }
 
     function pushLog(m) {
@@ -209,8 +178,6 @@
         div.innerText = m;
         document.getElementById('log-list').prepend(div);
     }
-
-    window.onload = initGraph;
 </script>
 </body>
 </html>
