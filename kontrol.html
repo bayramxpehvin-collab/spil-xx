@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPIL-X PRO | ANALİZ MERKEZİ</title>
+    
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon: #00f2ff; --danger: #ff3c00; --success: #00ff6a;
+            --warning: #ffcc00; --orange: #ff9100; --blue: #00008B;
+            --dark: #020202; --panel: rgba(10, 10, 10, 0.98);
+        }
+
+        body {
+            background-color: var(--dark); color: #fff; font-family: 'Rajdhani', sans-serif;
+            margin: 0; overflow: hidden; display: grid;
+            grid-template-columns: 320px 1fr 320px; height: 100vh;
+        }
+
+        /* SOL PANEL */
+        .sidebar-left {
+            background: var(--panel); border-right: 1px solid #1a1a1a;
+            padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto;
+        }
+
+        .header-brand {
+            font-family: 'Orbitron'; color: var(--neon); font-size: 0.9rem;
+            letter-spacing: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--neon); text-align: center; font-weight: 900;
+        }
+
+        .stat-card {
+            background: #000; border: 1px solid #222; padding: 12px;
+            border-radius: 4px; text-align: center;
+        }
+
+        .stat-label { font-size: 0.65rem; color: #555; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 1px; }
+        .stat-val { font-family: 'Orbitron'; font-size: 1.6rem; color: #fff; }
+
+        .btn {
+            background: transparent; border: 1px solid #333; color: #888;
+            padding: 10px; cursor: pointer; font-family: 'Orbitron';
+            font-size: 0.7rem; transition: 0.2s; width: 100%; margin-bottom: 5px; text-align: center; border-radius: 4px;
+        }
+
+        .btn:hover, .btn.active { border-color: var(--neon); color: var(--neon); background: rgba(0, 242, 255, 0.05); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+        .btn-load { border-color: var(--warning); color: var(--warning); font-weight: bold; border-width: 2px; }
+        .btn-load:hover { background: rgba(255, 204, 0, 0.1); }
+
+        /* ORTA PANEL */
+        .main-display { background: #000; display: flex; flex-direction: column; padding: 10px; position: relative; }
+        #plot-area { flex-grow: 1; width: 100%; height: 100%; border: 1px solid #111; border-radius: 8px; }
+
+        /* SAĞ PANEL */
+        .sidebar-right {
+            background: var(--panel); border-left: 1px solid #1a1a1a;
+            padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto;
+        }
+
+        .target-box {
+            background: #050505; border: 1px solid #222; padding: 10px; font-size: 0.7rem; border-radius: 4px;
+        }
+
+        .t-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .t-dot { width: 14px; height: 14px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.1); }
+
+        .ai-log {
+            flex-grow: 1; background: #020202; border: 1px solid #111;
+            padding: 10px; font-family: 'Courier New', monospace;
+            font-size: 0.7rem; color: #aaa; overflow-y: auto; line-height: 1.4;
+        }
+
+        .highlight { color: var(--neon); font-weight: bold; }
+        .danger-text { color: var(--danger); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar-left">
+        <div class="header-brand">SPIL-X ANALYTICS PRO</div>
+        
+        <input type="file" id="fileInput" style="display:none" accept=".json">
+        <button class="btn btn-load" onclick="document.getElementById('fileInput').click()">📂 TARAMA VERİSİ YÜKLE (.JSON)</button>
+
+        <div class="stat-card">
+            <div class="stat-label">ORTALAMA GERİLİM</div>
+            <div class="stat-val" id="v-ref">--.--<span style="font-size:0.8rem; color:var(--neon)">V</span></div>
+        </div>
+
+        <div class="btn-group">
+            <label class="stat-label">GÖRSELLEŞTİRME MODU</label>
+            <button class="btn" id="btn3d" onclick="setMode('3d')">3D HACİMSEL MODEL</button>
+            <button class="btn active" id="btn2d" onclick="setMode('2d')">2D TERMAL HARİTA</button>
+            <button class="btn" id="btnContour" onclick="setMode('contour')">İSOHİPS (KONTUR)</button>
+        </div>
+
+        <div class="stat-card" id="file-info" style="font-size: 0.6rem; color: #444; border-style: dashed;">
+            CİHAZ: -- <br> TARİH: --
+        </div>
+
+        <button class="btn" style="border-color:var(--danger); color:var(--danger); margin-top:auto" onclick="location.reload()">EKRANI SIFIRLA</button>
+    </aside>
+
+    <main class="main-display">
+        <div id="plot-area"></div>
+    </main>
+
+    <aside class="sidebar-right">
+        <div class="stat-label">20V ANALİZ EŞİKLERİ</div>
+        <div class="target-box">
+            <div class="t-row"><div class="t-dot" style="background:#00f2ff"></div> 16.5V - 20.0V (BOŞLUK / ODA)</div>
+            <div class="t-row"><div class="t-dot" style="background:#00ff6a"></div> 10.0V - 16.4V (ZEMİN)</div>
+            <div class="t-row"><div class="t-dot" style="background:yellow"></div> 5.1V - 9.9V (MİNERAL)</div>
+            <div class="t-row"><div class="t-dot" style="background:red"></div> 0.0V - 5.0V (METAL / İLETKEN)</div>
+        </div>
+
+        <div class="stat-label">YAPAY ZEKA (AI) SAHA RAPORU</div>
+        <div id="log-box" class="ai-log">
+            > SİSTEM ÇALIŞMAYA HAZIR...<br>
+            > LÜTFEN .JSON DOSYASINI SEÇİN.
+        </div>
+
+        <div class="stat-card" style="border-color:var(--neon)">
+            <div class="stat-label">HEDEF BULUNMA OLASILIĞI</div>
+            <div class="stat-val" id="prob-val" style="color:var(--neon)">%0</div>
+        </div>
+    </aside>
+
+    <script>
+        let currentMode = '2d'; // Başlangıç modu Termal Harita
+        let activeData = null;
+        const hatIsimleri = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
+
+        // index.html ile birebir aynı renk skalası (0-20V arası)
+        const thermalColorscale = [
+            [0, 'rgb(255, 0, 0)'],       // 0V -> Metal (Kırmızı)
+            [0.25, 'rgb(255, 0, 0)'],    // 5V
+            [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Mineral (Sarı)
+            [0.495, 'rgb(255, 255, 0)'], // 9.9V
+            [0.5, 'rgb(0, 255, 106)'],   // 10V -> Zemin (Yeşil)
+            [0.82, 'rgb(0, 255, 106)'],  // 16.4V
+            [0.825, 'rgb(0, 242, 255)'], // 16.5V -> Boşluk (Mavi)
+            [1, 'rgb(0, 242, 255)']      // 20V
+        ];
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    
+                    // index.html'den gelen yeni formatı kontrol et: {cihaz:..., veriler: [[...]]}
+                    if(parsed.veriler) {
+                        activeData = parsed.veriler;
+                        document.getElementById('file-info').innerHTML = `CİHAZ: ${parsed.cihaz || 'SPIL-X'} <br> TARİH: ${parsed.tarih || '--'}`;
+                    } else {
+                        // Eğer eski/ham formatta gelmişse
+                        activeData = parsed;
+                    }
+                    
+                    document.getElementById('log-box').innerHTML = ''; 
+                    addLog(`Veri işlendi: ${file.name}`);
+                    updateAnalysis();
+                } catch(err) {
+                    addLog("HATA: JSON dosyası okunamadı!", true);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            const targetBtn = document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1));
+            if(targetBtn) targetBtn.classList.add('active');
+            updateAnalysis();
+        }
+
+        function updateAnalysis() {
+            if(!activeData) return;
+            
+            const flatData = activeData.flat().filter(v => v !== null && !isNaN(v));
+            const avgV = flatData.length > 0 ? flatData.reduce((a, b) => a + b, 0) / flatData.length : 0;
+            document.getElementById('v-ref').innerHTML = `${avgV.toFixed(2)}<span style="font-size:0.8rem; color:var(--neon)">V</span>`;
+
+            runAI(activeData); 
+
+            if(currentMode === '3d') render3D(activeData);
+            else if(currentMode === '2d') render2D(activeData);
+            else renderContour(activeData);
+        }
+
+        function render3D(data) {
+            const trace = {
+                z: data, x: hatIsimleri, type: 'surface',
+                colorscale: thermalColorscale,
+                cmin: 0, cmax: 20,
+                colorbar: { tickcolor: '#fff', font: { family: 'Rajdhani', size: 10 }, title: 'V' }
+            };
+            const layout = {
+                paper_bgcolor: 'black', margin: {t:0, b:0, l:0, r:0},
+                scene: { 
+                    xaxis: {title: 'HATLAR', color: '#fff', gridcolor: '#222'},
+                    yaxis: {title: 'ADIM', color: '#fff', autorange: 'reversed', gridcolor: '#222'},
+                    zaxis: {title: 'VOLT', color: '#fff', range: [0, 20], gridcolor: '#222'},
+                    camera: {eye: {x: 1.6, y: 1.6, z: 1.2}} 
+                }
+            };
+            Plotly.newPlot('plot-area', [trace], layout, {responsive: true});
+        }
+
+        function render2D(data) {
+            const trace = {
+                z: data, x: hatIsimleri, type: 'heatmap',
+                colorscale: thermalColorscale,
+                zmin: 0, zmax: 20, 
+                zsmooth: 'best' // Termal ısı kamerası yumuşaklığı
+            };
+            Plotly.newPlot('plot-area', [trace], {
+                paper_bgcolor: 'black', plot_bgcolor: 'black', 
+                margin: {t:40, b:40, l:60, r:40},
+                yaxis: {autorange: 'reversed', color: '#fff', title: 'Derinlik Adımları', gridcolor: '#111'},
+                xaxis: {color: '#fff', title: 'Ölçüm Hatları', gridcolor: '#111'}
+            }, {responsive: true});
+        }
+
+        function renderContour(data) {
+            const trace = {
+                z: data, x: hatIsimleri, type: 'contour',
+                colorscale: thermalColorscale,
+                autocontour: false,
+                contours: { start: 0, end: 20, size: 1, showlines: true }
+            };
+            Plotly.newPlot('plot-area', [trace], {
+                paper_bgcolor: 'black', plot_bgcolor: 'black',
+                yaxis: {autorange: 'reversed', color: '#fff', gridcolor: '#111'},
+                xaxis: {color: '#fff', gridcolor: '#111'}
+            }, {responsive: true});
+        }
+
+        function runAI(data) {
+            const flatData = data.flat().filter(v => v !== null && !isNaN(v));
+            const minV = Math.min(...flatData);
+            const maxV = Math.max(...flatData);
+            let probability = 0;
+
+            let report = `<span class="highlight">> ANALİZ TAMAMLANDI.</span><br>`;
+            
+            // Metal tespiti (0 - 5.0V)
+            if(minV < 5.0) {
+                report += `> <span class="danger-text">[KRİTİK] METAL/İLETKEN TESPİTİ! (${minV.toFixed(2)}V)</span><br>`;
+                probability += 80;
+            } 
+
+            // Boşluk tespiti (16.5V - 20.0V)
+            if(maxV > 16.5) {
+                report += `> <span style="color:var(--neon); font-weight:bold;">[BİLGİ] BOŞLUK/ODA ANOMALİSİ. (${maxV.toFixed(2)}V)</span><br>`;
+                probability += 30;
+            }
+
+            // Mineral tespiti (5.1V - 9.9V)
+            if(minV >= 5.1 && minV <= 9.9) {
+                report += `> <span style="color:var(--warning)">[NOT] MİNERAL ETKİSİ GÖZLENİYOR.</span><br>`;
+            }
+            
+            if(probability > 99) probability = 99;
+            document.getElementById('prob-val').innerText = `%${probability}`;
+            addLog(report);
+        }
+
+        function addLog(msg, isError = false) {
+            const box = document.getElementById('log-box');
+            const color = isError ? 'var(--danger)' : '#888';
+            box.innerHTML += `<br><span style="color:${color}">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+</body>
+</html>
