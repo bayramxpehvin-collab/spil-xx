@@ -174,18 +174,18 @@
         }
     }
 
-  function goToAnalysis() {
-    // Uygulamanın çalıştığı ana dizini bul
-    var path = window.location.pathname;
-    var directory = path.substring(0, path.lastIndexOf('/'));
+function goToAnalysis() {
+    // Mevcut dosyanın tam yolunu al (örn: file:///android_asset/www/index.html)
+    var currentPath = window.location.href;
     
-    // Klasör yapısına göre kontrol.html'in tam yolunu oluştur
-    var targetFile = directory + "/kontrol.html";
+    // index.html kısmını silip yerine kontrol.html ekle
+    var targetPath = currentPath.replace("index.html", "kontrol.html");
     
-    console.log("Hedef Yol: " + targetFile);
-    
-    // Geçişi tarayıcı üzerinden değil, yerel dosya yolu üzerinden zorla
-    window.location.replace(targetFile);
+    // Eğer sonda başka parametreler varsa onları da temizlemek için:
+    targetPath = targetPath.split('#')[0].split('?')[0];
+
+    console.log("Gidilecek Yerel Yol: " + targetPath);
+    window.location.href = targetPath;
 }
 
     function saveDataJSON() {
