@@ -106,33 +106,29 @@
         }
     }
 
-    function initBT() {
-        if (typeof bluetoothSerial !== 'undefined') {
-            bluetoothSerial.isEnabled(function() {
-                pushLog("Cihaz listesi taranıyor...");
-                // Android 13'te listeleme penceresini tetikler
-                bluetoothSerial.showPortPicker(function(address) {
-                    pushLog("Bağlanıyor: " + address);
-                    bluetoothSerial.connect(address, function() {
-                        document.getElementById('bt-status').innerText = "BAĞLANDI";
-                        document.getElementById('bt-status').style.color = "var(--green)";
-                        document.getElementById('conn-btn').style.display = "none";
-                        document.getElementById('start-btn').disabled = false;
-                        pushLog("Eşleşme Tamamlandı.");
-                        bluetoothSerial.subscribe('\n', processRawData);
-                    }, function(err) { 
-                        alert("Bağlantı Başarısız! Lütfen Modülü Kapat-Aç Yapın."); 
-                    });
-                }, function() { 
-                    alert("HATA: Cihaz listesi boş. HC-06 ile telefonunuzun Bluetooth ayarlarından eşleştiğinizden emin olun!"); 
-                });
-            }, function() {
-                alert("Lütfen telefonun Bluetooth özelliğini açın!");
-            });
-        } else {
-            alert("Sadece Android cihazlarda çalışır.");
-        }
+   function initBT() {
+    if (typeof bluetoothSerial !== 'undefined') {
+        pushLog("Eşleşmiş cihazlar listeleniyor...");
+        bluetoothSerial.list(function(devices) {
+            if (devices.length > 0) {
+                // İlk bulduğun cihaza (HC-06) otomatik bağlanmayı dene
+                let targetDevice = devices.find(d => d.name.includes("HC-06")) || devices[0];
+                pushLog("Bulundu: " + targetDevice.name + " - Bağlanılıyor...");
+                
+                bluetoothSerial.connect(targetDevice.address, function() {
+                    document.getElementById('bt-status').innerText = "BAĞLANDI";
+                    document.getElementById('bt-status').style.color = "var(--green)";
+                    document.getElementById('conn-btn').style.display = "none";
+                    document.getElementById('start-btn').disabled = false;
+                    pushLog("Bağlantı Başarılı!");
+                    bluetoothSerial.subscribe('\n', processRawData);
+                }, function() { alert("Bağlantı hatası!"); });
+            } else {
+                alert("Eşleşmiş cihaz bulunamadı! Lütfen ayarlardan HC-06'yı eşleştirin.");
+            }
+        }, function() { alert("Liste alınamadı."); });
     }
+}
 
     function processRawData(data) {
         let d = data.trim();
