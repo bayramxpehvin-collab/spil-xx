@@ -13,9 +13,8 @@
     <platform name="android">
         <preference name="Scheme" value="file" />
         <preference name="Hostname" value="localhost" />
-        
         <preference name="AndroidInsecureFileModeEnabled" value="true" />
-        <preference name="AllowUntrustedCertificate" value="true" />
+        <preference name="AndroidWebViewAllowFileAccess" value="true" />
 
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
@@ -34,10 +33,8 @@
     <access origin="*" />
     <allow-navigation href="*" />
     <allow-navigation href="file://*" />
-    <allow-navigation href="content://*" />
     <allow-intent href="*" />
     
     <preference name="AllowInlineMediaPlayback" value="true" />
     <preference name="BackupWebStorage" value="none" />
-
 </widget>
