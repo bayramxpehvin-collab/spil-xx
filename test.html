@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SPIL-X | MOBİL ANALİZ</title>
+    
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --neon: #00f2ff; --danger: #ff3c00; --success: #00ff6a;
+            --warning: #ffcc00; --orange: #ff9100; --blue: #00008B;
+            --bg: #000; --panel: rgba(20, 20, 20, 0.95);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg); color: #fff; font-family: 'Rajdhani', sans-serif;
+            margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+        }
+
+        /* HEADER */
+        .hud-header {
+            padding: 12px; border-bottom: 2px solid var(--neon);
+            display: flex; justify-content: space-between; align-items: center; background: #000;
+        }
+
+        .logo { font-family: 'Orbitron'; font-size: 0.8rem; font-weight: 900; color: var(--neon); letter-spacing: 1px; }
+
+        /* ANA İÇERİK (SCROLL EDİLEBİLİR) */
+        .content {
+            flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px;
+        }
+
+        /* VERİ KARTLARI */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        
+        .stat-card {
+            background: var(--panel); border: 1px solid #222; padding: 10px;
+            border-radius: 8px; text-align: center;
+        }
+
+        .stat-label { font-size: 0.6rem; color: #666; text-transform: uppercase; margin-bottom: 2px; }
+        .stat-val { font-family: 'Orbitron'; font-size: 1.2rem; color: #fff; }
+
+        /* GRAFİK ALANI */
+        #plot-container {
+            width: 100%; height: 350px; background: #050505; 
+            border: 1px solid #1a1a1a; border-radius: 8px; overflow: hidden;
+        }
+
+        /* BUTONLAR */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        
+        .btn {
+            background: #000; border: 1px solid #333; color: #888;
+            padding: 12px; cursor: pointer; font-family: 'Orbitron';
+            font-size: 0.65rem; border-radius: 6px; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; text-align: center;
+        }
+
+        .btn:active { transform: scale(0.95); background: rgba(0, 242, 255, 0.1); }
+        .btn.active { border-color: var(--neon); color: var(--neon); box-shadow: 0 0 10px rgba(0, 242, 255, 0.2); }
+        .btn-load { border-color: var(--warning); color: var(--warning); grid-column: 1 / 3; font-weight: bold; }
+
+        /* ANALİZ KUTUSU */
+        .analysis-box {
+            background: #050505; border: 1px solid #111; border-radius: 8px;
+            padding: 10px; flex: 1; min-height: 150px; display: flex; flex-direction: column;
+        }
+
+        .ai-log {
+            flex: 1; font-family: 'Courier New', monospace; font-size: 0.75rem;
+            color: #aaa; overflow-y: auto; line-height: 1.4; margin-top: 5px;
+        }
+
+        .highlight { color: var(--neon); font-weight: bold; }
+        .danger-text { color: var(--danger); font-weight: bold; }
+
+        /* RENK SKALASI BİLGİSİ */
+        .legend {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+            background: #0a0a0a; padding: 8px; border-radius: 6px; font-size: 0.6rem;
+        }
+        .l-item { display: flex; align-items: center; gap: 5px; }
+        .l-dot { width: 10px; height: 10px; border-radius: 2px; }
+    </style>
+</head>
+<body>
+
+    <header class="hud-header">
+        <div class="logo">SPIL-X ANALYTICS PRO</div>
+        <div id="file-status" style="font-size: 0.6rem; color: var(--warning);">VERİ BEKLENİYOR</div>
+    </header>
+
+    <div class="content">
+        <input type="file" id="fileInput" style="display:none" accept=".json">
+        <button class="btn btn-load" onclick="document.getElementById('fileInput').click()">📂 JSON VERİ DOSYASI YÜKLE</button>
+
+        <div class="dashboard">
+            <div class="stat-card">
+                <div class="stat-label">ORTALAMA VOLTAJ</div>
+                <div class="stat-val" id="v-ref">--.--V</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">HEDEF OLASILIĞI</div>
+                <div id="prob-val" class="stat-val" style="color:var(--neon)">%0</div>
+            </div>
+        </div>
+
+        <div id="plot-container">
+            <div id="plot-area" style="width:100%; height:100%;"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn active" id="btn2d" onclick="setMode('2d')">2D TERMAL</button>
+            <button class="btn" id="btn3d" onclick="setMode('3d')">3D MODEL</button>
+            <button class="btn" id="btnContour" onclick="setMode('contour')">İSOHİPS</button>
+            <button class="btn" onclick="location.reload()" style="color:var(--danger)">TEMİZLE</button>
+        </div>
+
+        <div class="legend">
+            <div class="l-item"><div class="l-dot" style="background:red"></div> 0-5V Metal</div>
+            <div class="l-item"><div class="l-dot" style="background:yellow"></div> 5.1-9.9V Mineral</div>
+            <div class="l-item"><div class="l-dot" style="background:#00ff6a"></div> 10-16.4V Zemin</div>
+            <div class="l-item"><div class="l-dot" style="background:#00f2ff"></div> 16.5-20V Boşluk</div>
+        </div>
+
+        <div class="analysis-box">
+            <div class="stat-label">YAPAY ZEKA SAHA RAPORU</div>
+            <div id="log-box" class="ai-log">
+                > Analiz için dosya seçin...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentMode = '2d';
+        let activeData = null;
+        const lines = ["H-1", "H-2", "H-3", "H-4"];
+
+        const thermalColorscale = [
+            [0, 'rgb(255, 0, 0)'], [0.25, 'rgb(255, 0, 0)'],
+            [0.251, 'rgb(255, 255, 0)'], [0.495, 'rgb(255, 255, 0)'],
+            [0.5, 'rgb(0, 255, 106)'], [0.82, 'rgb(0, 255, 106)'],
+            [0.825, 'rgb(0, 242, 255)'], [1, 'rgb(0, 242, 255)']
+        ];
+
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const parsed = JSON.parse(event.target.result);
+                    activeData = parsed.veriler ? parsed.veriler : (parsed.matrix ? parsed.matrix : parsed);
+                    document.getElementById('file-status').innerText = "VERİ YÜKLENDİ";
+                    document.getElementById('file-status').style.color = "var(--success)";
+                    updateAnalysis();
+                } catch(err) {
+                    addLog("HATA: Dosya okunamadı!", true);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn' + mode.charAt(0).toUpperCase() + mode.slice(1))?.classList.add('active');
+            updateAnalysis();
+        }
+
+        function updateAnalysis() {
+            if(!activeData) return;
+            const flatData = activeData.flat().filter(v => v !== null && !isNaN(v));
+            const avgV = flatData.reduce((a, b) => a + b, 0) / flatData.length;
+            document.getElementById('v-ref').innerText = `${avgV.toFixed(2)}V`;
+            
+            runAI(activeData);
+
+            if(currentMode === '3d') render3D(activeData);
+            else if(currentMode === '2d') render2D(activeData);
+            else renderContour(activeData);
+        }
+
+        function render3D(data) {
+            const trace = {
+                z: data, x: lines, type: 'surface',
+                colorscale: thermalColorscale, cmin: 0, cmax: 20,
+                showscale: false
+            };
+            const layout = {
+                paper_bgcolor: 'black', margin: {t:0, b:0, l:0, r:0},
+                scene: { 
+                    xaxis: {color: '#fff', gridcolor: '#222'},
+                    yaxis: {color: '#fff', autorange: 'reversed', gridcolor: '#222'},
+                    zaxis: {color: '#fff', range: [0, 20], gridcolor: '#222'}
+                }
+            };
+            Plotly.newPlot('plot-area', [trace], layout, {responsive: true, displayModeBar: false});
+        }
+
+        function render2D(data) {
+            const trace = {
+                z: data, x: lines, type: 'heatmap',
+                colorscale: thermalColorscale, zmin: 0, zmax: 20, zsmooth: 'best'
+            };
+            Plotly.newPlot('plot-area', [trace], {
+                paper_bgcolor: 'black', plot_bgcolor: 'black', 
+                margin: {t:20, b:40, l:40, r:20},
+                yaxis: {autorange: 'reversed', color: '#fff', gridcolor: '#111'},
+                xaxis: {color: '#fff', gridcolor: '#111'}
+            }, {responsive: true, displayModeBar: false});
+        }
+
+        function renderContour(data) {
+            const trace = {
+                z: data, x: lines, type: 'contour',
+                colorscale: thermalColorscale, contours: { start: 0, end: 20, size: 1 }
+            };
+            Plotly.newPlot('plot-area', [trace], {
+                paper_bgcolor: 'black', plot_bgcolor: 'black',
+                margin: {t:20, b:40, l:40, r:20},
+                yaxis: {autorange: 'reversed', color: '#fff'},
+                xaxis: {color: '#fff'}
+            }, {responsive: true, displayModeBar: false});
+        }
+
+        function runAI(data) {
+            const flatData = data.flat().filter(v => v !== null && !isNaN(v));
+            const minV = Math.min(...flatData);
+            const maxV = Math.max(...flatData);
+            let prob = 0;
+            let log = `<span class="highlight">> ANALİZ TAMAMLANDI.</span><br>`;
+
+            if(minV < 5.0) { log += `> <span class="danger-text">[KRİTİK] METAL TESPİTİ (${minV.toFixed(2)}V)</span><br>`; prob += 75; }
+            if(maxV > 16.5) { log += `> <span style="color:var(--neon)">[BİLGİ] BOŞLUK TESPİTİ (${maxV.toFixed(2)}V)</span><br>`; prob += 25; }
+            
+            document.getElementById('prob-val').innerText = `%${Math.min(prob, 99)}`;
+            document.getElementById('log-box').innerHTML = log;
+        }
+
+        function addLog(msg, isErr) {
+            const box = document.getElementById('log-box');
+            box.innerHTML += `<br><span style="color:${isErr?'red':'#888'}">${msg}</span>`;
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+</body>
+</html>
