@@ -9,14 +9,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <style>
         :root { 
-            --neon: #00f2ff; 
-            --red: #ff3c00; 
-            --orange: #ff9100; 
-            --yellow: #ffcc00; 
-            --green: #00ff6a; 
-            --deep-blue: #0033ff; /* Koyu Mavi */
-            --bg: #000; 
-            --panel: rgba(15, 15, 15, 0.95); 
+            --neon: #00f2ff; --red: #ff3c00; --orange: #ff9100; 
+            --yellow: #ffcc00; --green: #00ff6a; --deep-blue: #0033ff; 
+            --bg: #000; --panel: rgba(15, 15, 15, 0.95); 
         }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: var(--bg); color: white; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -30,27 +25,24 @@
         #viewport-container { width: 100%; height: 320px; background: #050505; border: 1px solid #1a1a1a; border-radius: 8px; position: relative; }
         #thermal-engine { width: 100%; height: 100%; }
         .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .btn { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; font-family: 'Orbitron'; font-size: 0.7rem; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn { background: #000; border: 1px solid var(--neon); color: var(--neon); padding: 12px; font-family: 'Orbitron'; font-size: 0.7rem; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; text-align: center; }
         .btn:active { background: var(--neon); color: #000; transform: scale(0.98); }
         .btn.active { background: var(--neon); color: #000; box-shadow: 0 0 10px var(--neon); }
         .btn-connect { border-color: var(--green); color: var(--green); grid-column: 1 / 3; }
         .btn-start { border-color: var(--orange); color: var(--orange); grid-column: 1 / 3; }
-        .btn-save { border-color: var(--yellow); color: var(--yellow); }
-        .btn-clear { border-color: var(--red); color: var(--red); }
         .analysis-box { background: #050505; border: 1px solid #111; border-radius: 8px; padding: 10px; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
-        #log-list { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; color: #aaa; }
+        #log-list { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.72rem; color: #aaa; }
         .ai-msg { color: var(--neon); font-weight: bold; padding: 5px; border: 1px dashed var(--neon); margin-bottom: 5px; text-align: center; font-size: 0.7rem; }
         
-        /* Log Satırı Stili */
         .log-entry { 
-            padding: 5px; 
+            padding: 6px 4px; 
             border-bottom: 1px solid #111; 
-            display: flex; 
-            justify-content: space-between; 
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 1.5fr;
+            gap: 5px;
             font-weight: bold;
-            animation: blink 0.5s ease-out;
         }
-        @keyframes blink { from { background: rgba(255,255,255,0.1); } to { background: transparent; } }
+        .hat-label { color: #fff; background: #222; padding: 0 4px; border-radius: 3px; font-size: 0.65rem; }
     </style>
 </head>
 <body>
@@ -67,26 +59,24 @@
             <span id="v-val" class="val">--.--</span>
         </div>
         <div class="stat-card">
-            <span class="label">KOORDİNAT</span>
-            <span id="coord-val" class="val">0.0</span>
+            <span class="label">SON KONUM</span>
+            <span id="coord-val" class="val">--</span>
         </div>
     </div>
 
     <div class="controls">
-        <button class="btn btn-connect" id="conn-btn" onclick="initBT()">CİHAZA BAĞLAN (HC-06)</button>
+        <button class="btn btn-connect" id="conn-btn" onclick="initBT()">BAĞLAN (HC-06)</button>
         <button class="btn btn-start" id="start-btn" onclick="sendCmd('S')" disabled>TARAMAYI BAŞLAT</button>
-        <button class="btn active" id="m-2d" onclick="switchMode('heatmap')">TERMAL HARİTA</button>
-        <button class="btn" id="m-3d" onclick="switchMode('surface')">3D ANALİZ</button>
-        <button class="btn btn-save" onclick="saveDataJSON()">JSON KAYDET</button>
-        <button class="btn btn-clear" onclick="clearData()">TEMİZLE</button>
+        <button class="btn active" id="m-2d" onclick="switchMode('heatmap')">TERMAL</button>
+        <button class="btn" id="m-3d" onclick="switchMode('surface')">3D PRO</button>
+        <button class="btn" style="border-color:var(--yellow); color:var(--yellow);" onclick="saveDataJSON()">JSON</button>
+        <button class="btn" style="border-color:var(--red); color:var(--red);" onclick="clearData()">SİL</button>
     </div>
 
-    <div id="viewport-container">
-        <div id="thermal-engine"></div>
-    </div>
+    <div id="viewport-container"><div id="thermal-engine"></div></div>
 
     <div class="analysis-box">
-        <div class="label" style="margin-bottom:5px;">SAHA VERİ GÜNLÜĞÜ</div>
+        <div class="label" style="margin-bottom:5px;">DETAYLI SAHA ANALİZİ</div>
         <div id="log-list"><div class="ai-msg">Sistem hazır.</div></div>
     </div>
 </div>
@@ -94,50 +84,30 @@
 <script>
     let scanData = Array(10).fill().map(() => Array(4).fill(null));
     let currentMode = 'heatmap';
-    const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
+    const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"]; // Hat isimleri burada tanımlı
 
-    // GÜNCELLENMİŞ TERMAL SKALA (KOYU MAVİ EKLENDİ)
     const thermalColorscale = [
-        [0, 'rgb(255, 0, 0)'],       // 0V -> Metal (Kırmızı)
-        [0.25, 'rgb(255, 0, 0)'],    // 5V
-        [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Mineral (Sarı)
-        [0.495, 'rgb(255, 255, 0)'], // 9.9V
-        [0.5, 'rgb(0, 255, 106)'],   // 10V -> Zemin (Yeşil)
-        [0.82, 'rgb(0, 255, 106)'],  // 16.4V
-        [0.825, 'rgb(0, 51, 255)'],  // 16.5V -> Boşluk (Koyu Mavi)
-        [1, 'rgb(0, 51, 255)']       // 20V
+        [0, 'rgb(255, 0, 0)'], [0.25, 'rgb(255, 0, 0)'],
+        [0.251, 'rgb(255, 255, 0)'], [0.495, 'rgb(255, 255, 0)'],
+        [0.5, 'rgb(0, 255, 106)'], [0.82, 'rgb(0, 255, 106)'],
+        [0.825, 'rgb(0, 51, 255)'], [1, 'rgb(0, 51, 255)']
     ];
 
-    document.addEventListener('deviceready', function() {
-        pushLog("Sistem Başlatıldı...");
-        requestPermissions();
-        initGraph();
-    }, false);
-
-    function requestPermissions() {
-        if (typeof cordova !== 'undefined' && cordova.plugins.permissions) {
-            const p = cordova.plugins.permissions;
-            p.requestPermissions([p.BLUETOOTH_SCAN, p.BLUETOOTH_CONNECT, p.ACCESS_FINE_LOCATION, p.WRITE_EXTERNAL_STORAGE], 
-            function(s) { pushLog("İzinler Tamam."); }, function() { alert("İzin Hatası!"); });
-        }
-    }
+    document.addEventListener('deviceready', function() { initGraph(); }, false);
 
     function initBT() {
         if (typeof bluetoothSerial !== 'undefined') {
             bluetoothSerial.list(function(devices) {
                 let dev = devices.find(d => d.name.includes("HC-06")) || devices[0];
                 if(dev) {
-                    pushLog("Bağlanıyor: " + dev.name);
                     bluetoothSerial.connect(dev.address, function() {
                         document.getElementById('bt-status').innerText = "BAĞLANDI";
                         document.getElementById('bt-status').style.color = "var(--green)";
-                        document.getElementById('conn-btn').style.display = "none";
                         document.getElementById('start-btn').disabled = false;
-                        pushLog("Bağlantı Başarılı!");
                         bluetoothSerial.subscribe('\n', processRawData);
-                    }, function() { alert("Bağlantı Hatası!"); });
-                } else { alert("Eşleşmiş cihaz yok!"); }
-            }, function() { alert("Liste Hatası"); });
+                    }, function() { alert("Hata!"); });
+                }
+            });
         }
     }
 
@@ -147,43 +117,35 @@
             try {
                 let json = JSON.parse(d);
                 let volt = json.v;
+                let y = json.y; // Satır (0-9)
+                let x = json.x; // Sütun/Hat (0-3)
+
                 document.getElementById('v-val').innerText = volt.toFixed(2);
-                document.getElementById('coord-val').innerText = `${json.y+1}.${json.x+1}`;
-                scanData[json.y][json.x] = volt;
+                document.getElementById('coord-val').innerText = `${lines[x]} / ${y+1}`;
+                
+                scanData[y][x] = volt;
                 Plotly.restyle('thermal-engine', { z: [scanData] });
 
-                // VOLTAJ ANLAMLARI VE RENKLERİ
-                let anlam = "";
-                let renk = "";
+                // Anlam ve Renk Belirleme
+                let anlam = ""; let renk = "";
+                if (volt <= 5.0) { anlam = "METAL"; renk = "var(--red)"; }
+                else if (volt <= 9.9) { anlam = "MİNERAL"; renk = "var(--yellow)"; }
+                else if (volt <= 16.4) { anlam = "ZEMİN"; renk = "var(--green)"; }
+                else { anlam = "BOŞLUK"; renk = "var(--deep-blue)"; }
 
-                if (volt <= 5.0) {
-                    anlam = "METAL / İLETKEN";
-                    renk = "var(--red)";
-                } else if (volt <= 9.9) {
-                    anlam = "MİNERAL";
-                    renk = "var(--yellow)";
-                } else if (volt <= 16.4) {
-                    anlam = "ZEMİN / TOPRAK";
-                    renk = "var(--green)";
-                } else {
-                    anlam = "BOŞLUK / ODA";
-                    renk = "var(--deep-blue)";
-                }
-
-                // Log Listesine Ekleme
+                // LOG SATIRI OLUŞTURMA (Hangi Hat Olduğunu Ekler)
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
                 entry.style.color = renk;
                 entry.innerHTML = `
-                    <span>[${json.y+1},${json.x+1}] ${volt.toFixed(2)}V</span>
-                    <span>${anlam}</span>
+                    <span class="hat-label">${lines[x]}</span>
+                    <span>${volt.toFixed(2)}V</span>
+                    <span style="text-align:right;">${anlam}</span>
                 `;
                 
                 const logList = document.getElementById('log-list');
                 logList.prepend(entry);
-                
-                // Performans için eski logları temizle (isteğe bağlı)
-                if (logList.children.length > 50) logList.lastChild.remove();
+                if (logList.children.length > 40) logList.lastChild.remove();
 
             } catch(e) {}
         }
@@ -191,20 +153,14 @@
 
     function initGraph() {
         const trace = { 
-            z: scanData, 
-            x: lines, 
-            type: currentMode, 
-            colorscale: thermalColorscale,
-            zmin: 0, zmax: 20,
-            zsmooth: currentMode === 'heatmap' ? 'best' : false,
-            showscale: true
+            z: scanData, x: lines, type: currentMode, colorscale: thermalColorscale,
+            zmin: 0, zmax: 20, zsmooth: currentMode === 'heatmap' ? 'best' : false
         };
-        const layout = { 
+        Plotly.newPlot('thermal-engine', [trace], { 
             paper_bgcolor: '#000', plot_bgcolor: '#000', 
             margin: { t: 10, b: 20, l: 30, r: 10 },
-            xaxis: { gridcolor: '#111' }, yaxis: { autorange: 'reversed', gridcolor: '#111' }
-        };
-        Plotly.newPlot('thermal-engine', [trace], layout, {responsive: true, displayModeBar: false});
+            yaxis: { autorange: 'reversed', gridcolor: '#111' } 
+        }, {responsive: true, displayModeBar: false});
     }
 
     function switchMode(m) { 
@@ -214,33 +170,21 @@
         initGraph(); 
     }
 
-    function sendCmd(c) {
-        if (typeof bluetoothSerial !== 'undefined') {
-            bluetoothSerial.write(c, function() { pushLog("Tarama Başlatıldı."); });
-        }
-    }
+    function sendCmd(c) { if (typeof bluetoothSerial !== 'undefined') bluetoothSerial.write(c); }
 
     function saveDataJSON() {
         const fileName = "SPILX_DATA_" + Date.now() + ".json";
-        const content = JSON.stringify({
-            cihaz: "SPIL-X PRO",
-            tarih: new Date().toLocaleString(),
-            veriler: scanData
-        }, null, 2);
-
+        const content = JSON.stringify({ cihaz: "SPIL-X PRO", veriler: scanData }, null, 2);
         if (typeof cordova !== 'undefined') {
             const path = cordova.file.externalRootDirectory + "Download/"; 
             window.resolveLocalFileSystemURL(path, function(dir) {
                 dir.getFile(fileName, { create: true }, function(fileEntry) {
-                    fileEntry.createWriter(function(fileWriter) {
-                        fileWriter.onwriteend = function() { alert("Dosya Kaydedildi:\n" + fileName); };
-                        fileWriter.write(new Blob([content], { type: 'application/json' }));
+                    fileEntry.createWriter(function(fw) {
+                        fw.onwriteend = function() { alert("İndirilenlere Kaydedildi!"); };
+                        fw.write(new Blob([content], { type: 'application/json' }));
                     });
                 });
-            }, function(err) { alert("Klasör Erişim Hatası!"); });
-        } else {
-            console.log(content);
-            alert("Sadece APK modunda dosyaya yazar.");
+            });
         }
     }
 
@@ -249,7 +193,7 @@
         scanData = Array(10).fill().map(() => Array(4).fill(null));
         initGraph();
         document.getElementById('log-list').innerHTML = '';
-        pushLog("Hafıza temizlendi.");
+        pushLog("Temizlendi.");
     }
 
     function pushLog(m) {
