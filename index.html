@@ -69,7 +69,7 @@
         <button class="btn" id="m-3d" onclick="switchMode('surface')">3D ANALİZ</button>
         <button class="btn btn-save" onclick="saveDataJSON()">JSON KAYDET</button>
         <button class="btn btn-clear" onclick="clearData()">TEMİZLE</button>
-<a href="test.html" class="btn btn-analysis">PRO ANALİZ MERKEZİNE GİT</a>
+        <button class="btn btn-analysis" onclick="goToAnalysis()">PRO ANALİZ MERKEZİNE GİT</button>
     </div>
 
     <div id="viewport-container">
@@ -174,19 +174,15 @@
         }
     }
 
-function goToAnalysis() {
-    // Mevcut dosyanın tam yolunu al (örn: file:///android_asset/www/index.html)
-    var currentPath = window.location.href;
-    
-    // index.html kısmını silip yerine kontrol.html ekle
-    var targetPath = currentPath.replace("index.html", "test.html");
-    
-    // Eğer sonda başka parametreler varsa onları da temizlemek için:
-    targetPath = targetPath.split('#')[0].split('?')[0];
-
-    console.log("Gidilecek Yerel Yol: " + targetPath);
-    window.location.href = targetPath;
-}
+    function goToAnalysis() {
+        if (scanData.flat().some(v => v !== null)) {
+            if(confirm("Verileri kaydettiyseniz Analiz Merkezi'ne geçebilirsiniz?")) {
+                window.location.href = "kontrol.html";
+            }
+        } else {
+            window.location.href = "kontrol.html";
+        }
+    }
 
     function saveDataJSON() {
         const fileName = "SPILX_DATA_" + Date.now() + ".json";
