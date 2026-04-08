@@ -8,7 +8,16 @@
     <script src="cordova.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
     <style>
-        :root { --neon: #00f2ff; --red: #ff3c00; --orange: #ff9100; --yellow: #ffcc00; --green: #00ff6a; --bg: #000; --panel: rgba(15, 15, 15, 0.95); }
+        :root { 
+            --neon: #00f2ff; 
+            --red: #ff3c00; 
+            --orange: #ff9100; 
+            --yellow: #ffcc00; 
+            --green: #00ff6a; 
+            --deep-blue: #0033ff; /* Koyu Mavi */
+            --bg: #000; 
+            --panel: rgba(15, 15, 15, 0.95); 
+        }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: var(--bg); color: white; font-family: 'Rajdhani', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .hud-header { padding: 10px 15px; border-bottom: 2px solid var(--neon); display: flex; justify-content: space-between; align-items: center; background: #000; z-index: 10; }
@@ -31,6 +40,17 @@
         .analysis-box { background: #050505; border: 1px solid #111; border-radius: 8px; padding: 10px; flex: 1; min-height: 150px; display: flex; flex-direction: column; }
         #log-list { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.75rem; color: #aaa; }
         .ai-msg { color: var(--neon); font-weight: bold; padding: 5px; border: 1px dashed var(--neon); margin-bottom: 5px; text-align: center; font-size: 0.7rem; }
+        
+        /* Log Satırı Stili */
+        .log-entry { 
+            padding: 5px; 
+            border-bottom: 1px solid #111; 
+            display: flex; 
+            justify-content: space-between; 
+            font-weight: bold;
+            animation: blink 0.5s ease-out;
+        }
+        @keyframes blink { from { background: rgba(255,255,255,0.1); } to { background: transparent; } }
     </style>
 </head>
 <body>
@@ -76,7 +96,7 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-    // ÖZEL TERMAL SKALA
+    // GÜNCELLENMİŞ TERMAL SKALA (KOYU MAVİ EKLENDİ)
     const thermalColorscale = [
         [0, 'rgb(255, 0, 0)'],       // 0V -> Metal (Kırmızı)
         [0.25, 'rgb(255, 0, 0)'],    // 5V
@@ -84,8 +104,8 @@
         [0.495, 'rgb(255, 255, 0)'], // 9.9V
         [0.5, 'rgb(0, 255, 106)'],   // 10V -> Zemin (Yeşil)
         [0.82, 'rgb(0, 255, 106)'],  // 16.4V
-        [0.825, 'rgb(0, 242, 255)'], // 16.5V -> Boşluk (Mavi)
-        [1, 'rgb(0, 242, 255)']      // 20V
+        [0.825, 'rgb(0, 51, 255)'],  // 16.5V -> Boşluk (Koyu Mavi)
+        [1, 'rgb(0, 51, 255)']       // 20V
     ];
 
     document.addEventListener('deviceready', function() {
@@ -126,14 +146,45 @@
         if (d.startsWith('{')) {
             try {
                 let json = JSON.parse(d);
-                document.getElementById('v-val').innerText = json.v.toFixed(2);
+                let volt = json.v;
+                document.getElementById('v-val').innerText = volt.toFixed(2);
                 document.getElementById('coord-val').innerText = `${json.y+1}.${json.x+1}`;
-                scanData[json.y][json.x] = json.v;
+                scanData[json.y][json.x] = volt;
                 Plotly.restyle('thermal-engine', { z: [scanData] });
+
+                // VOLTAJ ANLAMLARI VE RENKLERİ
+                let anlam = "";
+                let renk = "";
+
+                if (volt <= 5.0) {
+                    anlam = "METAL / İLETKEN";
+                    renk = "var(--red)";
+                } else if (volt <= 9.9) {
+                    anlam = "MİNERAL";
+                    renk = "var(--yellow)";
+                } else if (volt <= 16.4) {
+                    anlam = "ZEMİN / TOPRAK";
+                    renk = "var(--green)";
+                } else {
+                    anlam = "BOŞLUK / ODA";
+                    renk = "var(--deep-blue)";
+                }
+
+                // Log Listesine Ekleme
                 const entry = document.createElement('div');
                 entry.className = 'log-entry';
-                entry.innerHTML = `<span>[${json.y+1},${json.x+1}] ${json.v.toFixed(2)}V</span>`;
-                document.getElementById('log-list').prepend(entry);
+                entry.style.color = renk;
+                entry.innerHTML = `
+                    <span>[${json.y+1},${json.x+1}] ${volt.toFixed(2)}V</span>
+                    <span>${anlam}</span>
+                `;
+                
+                const logList = document.getElementById('log-list');
+                logList.prepend(entry);
+                
+                // Performans için eski logları temizle (isteğe bağlı)
+                if (logList.children.length > 50) logList.lastChild.remove();
+
             } catch(e) {}
         }
     }
@@ -145,7 +196,7 @@
             type: currentMode, 
             colorscale: thermalColorscale,
             zmin: 0, zmax: 20,
-            zsmooth: currentMode === 'heatmap' ? 'best' : false, // TERMAL GEÇİŞİ YUMUŞATIR
+            zsmooth: currentMode === 'heatmap' ? 'best' : false,
             showscale: true
         };
         const layout = { 
@@ -169,7 +220,6 @@
         }
     }
 
-    // GERÇEK JSON KAYIT FONKSİYONU
     function saveDataJSON() {
         const fileName = "SPILX_DATA_" + Date.now() + ".json";
         const content = JSON.stringify({
@@ -183,7 +233,7 @@
             window.resolveLocalFileSystemURL(path, function(dir) {
                 dir.getFile(fileName, { create: true }, function(fileEntry) {
                     fileEntry.createWriter(function(fileWriter) {
-                        fileWriter.onwriteend = function() { alert("Dosya İndirilenler Klasörüne Kaydedildi:\n" + fileName); };
+                        fileWriter.onwriteend = function() { alert("Dosya Kaydedildi:\n" + fileName); };
                         fileWriter.write(new Blob([content], { type: 'application/json' }));
                     });
                 });
@@ -199,6 +249,7 @@
         scanData = Array(10).fill().map(() => Array(4).fill(null));
         initGraph();
         document.getElementById('log-list').innerHTML = '';
+        pushLog("Hafıza temizlendi.");
     }
 
     function pushLog(m) {
