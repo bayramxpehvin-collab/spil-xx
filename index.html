@@ -104,18 +104,16 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-    // GÜNCELLENMİŞ TERMAL SKALA (KOYU MAVİ EKLENDİ)
-    const thermalColorscale = [
-        [0, 'rgb(255, 0, 0)'],       // 0V -> Metal (Kırmızı)
-        [0.25, 'rgb(255, 0, 0)'],    // 5V
-        [0.251, 'rgb(255, 255, 0)'], // 5.1V -> Mineral (Sarı)
-        [0.495, 'rgb(255, 255, 0)'], // 9.9V
-        [0.5, 'rgb(0, 255, 106)'],   // 10V -> Zemin (Yeşil)
-        [0.82, 'rgb(0, 255, 106)'],  // 16.4V
-        [0.825, 'rgb(0, 51, 255)'],  // 16.5V -> Boşluk (Koyu Mavi)
-        [1, 'rgb(0, 51, 255)']       // 20V
-    ];
-
+   const thermalColorscale = [
+    [0, 'rgb(255, 0, 0)'],       // 0V -> METAL (Kırmızı)
+    [0.42, 'rgb(255, 0, 0)'],    // 14.9V
+    [0.43, 'rgb(255, 255, 0)'],  // 15V -> MİNERAL (Sarı)
+    [0.76, 'rgb(255, 255, 0)'],  // 26.9V
+    [0.77, 'rgb(0, 255, 106)'],  // 27V -> ZEMİN (Yeşil)
+    [0.88, 'rgb(0, 255, 106)'],  // 30.9V
+    [0.89, 'rgb(0, 51, 255)'],   // 31V -> BOŞLUK (Koyu Mavi)
+    [1, 'rgb(0, 51, 255)']       // 35V Üst Sınır
+];
     document.addEventListener('deviceready', function() {
         pushLog("Sistem Başlatıldı...");
         requestPermissions();
@@ -167,12 +165,24 @@ function processRawData(data) {
             Plotly.restyle('thermal-engine', { z: [scanData] });
 
             // Voltaj anlamını ve rengini belirle
-            let anlam = ""; let renk = "";
-            if (volt <= 5.0) { anlam = "METAL"; renk = "var(--red)"; }
-            else if (volt <= 9.9) { anlam = "MİNERAL"; renk = "var(--yellow)"; }
-            else if (volt <= 16.4) { anlam = "ZEMİN"; renk = "var(--green)"; }
-            else { anlam = "BOŞLUK"; renk = "var(--deep-blue)"; }
-
+           // Voltaj anlamını ve rengini belirle (30.5V Referansına Göre)
+let anlam = ""; let renk = "";
+if (volt >= 30.0) { 
+    anlam = "BOŞLUK / ODA"; 
+    renk = "var(--red)"; 
+}
+else if (volt >= 27.0) { 
+    anlam = "ZEMİN (NORMAL)"; 
+    renk = "var(--green)"; 
+}
+else if (volt >= 15.0) { 
+    anlam = "MİNERAL / NEM"; 
+    renk = "var(--deep-blue)"; 
+}
+else { 
+    anlam = "METAL / İLETKEN"; 
+    renk = "var(--yellow)"; 
+}
             // Log satırına HAT bilgisini ekle
             const entry = document.createElement('div');
             entry.className = 'log-entry';
@@ -194,15 +204,17 @@ function processRawData(data) {
 }
 
     function initGraph() {
-        const trace = { 
-            z: scanData, 
-            x: lines, 
-            type: currentMode, 
-            colorscale: thermalColorscale,
-            zmin: 0, zmax: 20,
-            zsmooth: currentMode === 'heatmap' ? 'best' : false,
-            showscale: true
-        };
+       // initGraph fonksiyonu içindeki trace kısmını böyle güncelle:
+const trace = { 
+    z: scanData, 
+    x: lines, 
+    type: currentMode, 
+    colorscale: thermalColorscale,
+    zmin: 0, 
+    zmax: 35, // 20'den 35'e yükseltildi
+    zsmooth: currentMode === 'heatmap' ? 'best' : false,
+    showscale: true
+};
         const layout = { 
             paper_bgcolor: '#000', plot_bgcolor: '#000', 
             margin: { t: 10, b: 20, l: 30, r: 10 },
