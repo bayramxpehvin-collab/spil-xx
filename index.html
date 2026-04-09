@@ -104,15 +104,15 @@
     let currentMode = 'heatmap';
     const lines = ["HAT-1", "HAT-2", "HAT-3", "HAT-4"];
 
-   const thermalColorscale = [
-    [0, 'rgb(255, 0, 0)'],       // 0V -> METAL (Kırmızı)
-    [0.42, 'rgb(255, 0, 0)'],    // 14.9V
-    [0.43, 'rgb(255, 255, 0)'],  // 15V -> MİNERAL (Sarı)
-    [0.76, 'rgb(255, 255, 0)'],  // 26.9V
-    [0.77, 'rgb(0, 255, 106)'],  // 27V -> ZEMİN (Yeşil)
-    [0.88, 'rgb(0, 255, 106)'],  // 30.9V
-    [0.89, 'rgb(0, 51, 255)'],   // 31V -> BOŞLUK (Koyu Mavi)
-    [1, 'rgb(0, 51, 255)']       // 35V Üst Sınır
+  const thermalColorscale = [
+    [0.0, 'rgb(255, 0, 0)'],     // 0V - 11.9V -> METAL (Kırmızı)
+    [0.34, 'rgb(255, 0, 0)'],
+    [0.35, 'rgb(255, 255, 0)'],   // 12V - 19.9V -> MİNERAL (Sarı)
+    [0.56, 'rgb(255, 255, 0)'],
+    [0.57, 'rgb(0, 255, 106)'],   // 20V - 27.9V -> ZEMİN (Yeşil)
+    [0.79, 'rgb(0, 255, 106)'],
+    [0.80, 'rgb(0, 51, 255)'],    // 28V ve Üstü -> BOŞLUK (Koyu Mavi)
+    [1.0, 'rgb(0, 51, 255)']
 ];
     document.addEventListener('deviceready', function() {
         pushLog("Sistem Başlatıldı...");
@@ -164,24 +164,24 @@ function processRawData(data) {
             scanData[y][x] = volt;
             Plotly.restyle('thermal-engine', { z: [scanData] });
 
-            // Voltaj anlamını ve rengini belirle
-           // Voltaj anlamını ve rengini belirle (30.5V Referansına Göre)
+         // 28.0V VE ÜZERİ BOŞLUK MANTIĞI
 let anlam = ""; let renk = "";
-if (volt >= 30.0) { 
+
+if (volt >= 28.0) { 
     anlam = "BOŞLUK / ODA"; 
-    renk = "var(--red)"; 
+    renk = "var(--deep-blue)"; // Mavi
 }
-else if (volt >= 27.0) { 
+else if (volt >= 20.0) { 
     anlam = "ZEMİN (NORMAL)"; 
-    renk = "var(--green)"; 
+    renk = "var(--green)"; // Yeşil
 }
-else if (volt >= 15.0) { 
+else if (volt >= 12.0) { 
     anlam = "MİNERAL / NEM"; 
-    renk = "var(--deep-blue)"; 
+    renk = "var(--yellow)"; // Sarı
 }
 else { 
     anlam = "METAL / İLETKEN"; 
-    renk = "var(--yellow)"; 
+    renk = "var(--red)"; // Kırmızı
 }
             // Log satırına HAT bilgisini ekle
             const entry = document.createElement('div');
@@ -204,17 +204,16 @@ else {
 }
 
     function initGraph() {
-       // initGraph fonksiyonu içindeki trace kısmını böyle güncelle:
-const trace = { 
-    z: scanData, 
-    x: lines, 
-    type: currentMode, 
-    colorscale: thermalColorscale,
-    zmin: 0, 
-    zmax: 35, // 20'den 35'e yükseltildi
-    zsmooth: currentMode === 'heatmap' ? 'best' : false,
-    showscale: true
-};
+    const trace = { 
+        z: scanData, 
+        x: lines, 
+        type: currentMode, 
+        colorscale: thermalColorscale,
+        zmin: 0, 
+        zmax: 35, // 20 olan değeri 35 yaptık
+        zsmooth: currentMode === 'heatmap' ? 'best' : false,
+        showscale: true
+    };
         const layout = { 
             paper_bgcolor: '#000', plot_bgcolor: '#000', 
             margin: { t: 10, b: 20, l: 30, r: 10 },
